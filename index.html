@@ -1,470 +1,567 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orbit Game</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Menggunakan font Inter dari Tailwind */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f3e8; /* Background krem lembut */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            overflow: hidden; /* Menyembunyikan scrollbar */
-        }
-        .game-container {
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            border-radius: 20px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            background-color: #ffffff; /* Kontainer putih */
-            max-width: 90vw;
-            width: 500px;
-        }
-        canvas {
-            background-color: #2c3e50; /* Latar belakang canvas gelap */
-            display: block;
-            border-bottom: 4px solid #34495e;
-        }
-        #game-info {
-            background-color: #ffffff;
-            padding: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        #message-box {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(44, 62, 80, 0.9); /* Overlay gelap */
-            color: #ecf0f1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            z-index: 100;
-            border-radius: 20px;
-            transition: opacity 0.5s ease;
-        }
-        .game-button {
-            padding: 0.75rem 1.5rem;
-            margin-top: 1rem;
-            background-color: #e74c3c; /* Merah untuk Mulai/Mulai Ulang */
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.1s;
-        }
-        .game-button:hover {
-            background-color: #c0392b;
-            transform: translateY(-2px);
-        }
-    </style>
-</head>
-<body>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-    <div class="game-container">
-        <!-- Informasi Game -->
-        <div id="game-info">
-            <span class="text-lg font-bold text-gray-800"> Orbit</span>
-            <span id="score" class="text-xl font-semibold text-indigo-600">Skor: 0</span>
-        </div>
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #333;
+    min-height: 100vh;
+    padding: 20px;
+}
 
-        <!-- Canvas Game -->
-        <canvas id="gameCanvas" width="500" height="500"></canvas>
+.game-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
 
-        <!-- Kotak Pesan/Mulai -->
-        <div id="message-box">
-            <h1 class="text-4xl font-bold mb-4">Selamat Datang wahai pengunjung!</h1>
-            <p class="text-xl mb-6">Tahan tombol panah KIRI atau KANAN (untuk komputer) dan sentuh sisi kanan/kiri (untuk hp) untuk bergerak dan menghindari partikel.</p>
-            <button id="startButton" class="game-button">Start Game</button>
-        </div>
-    </div>
+/* Header */
+.header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
 
-    <script type="text/javascript">
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const messageBox = document.getElementById('message-box');
-        const scoreDisplay = document.getElementById('score');
-        const startButton = document.getElementById('startButton');
+.header h1 {
+    font-size: 2.5em;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
 
-        // --- Variabel Game ---
-        let animationFrameId;
-        let isGameOver = false;
-        let isGameRunning = false;
-        let score = 0;
-        let particleSpawnRate = 120; // Frame rate untuk spawn partikel (semakin kecil, semakin cepat)
-        let frameCount = 0;
+.header-stats {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
 
-        // --- Konfigurasi Estetik ---
-        const colors = {
-            player: '#3498db', // Biru terang untuk pemain
-            center: '#f1c40f', // Emas untuk pusat
-            particle: 'rgba(236, 240, 241, 0.8)', // Putih keabu-abuan transparan
-            trail: 'rgba(52, 152, 219, 0.2)' // Jejak biru muda
-        };
+.stat {
+    font-size: 1.2em;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 8px 15px;
+    border-radius: 8px;
+}
 
-        // --- Obyek Pusat (Gravitasi) ---
-        const center = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            radius: 10
-        };
+/* Sections */
+.section {
+    padding: 30px;
+    border-bottom: 2px solid #eee;
+}
 
-        // --- Obyek Pemain ---
-        const player = {
-            angle: Math.PI / 2, // Posisi awal di atas
-            radius: 8,
-            distance: 120, // Jarak dari pusat
-            orbitSpeed: 0.04, // Kecepatan orbit dasar
-            currentOrbitSpeed: 0.04,
-            acceleration: 0.0005, // Akselerasi untuk perubahan kecepatan
-            maxSpeed: 0.08,
-            keys: { left: false, right: false }
-        };
+.section h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    font-size: 1.8em;
+}
 
-        // --- Obyek Partikel ---
-        let particles = [];
-        class Particle {
-            constructor() {
-                // Spawn partikel dari tepi canvas secara acak
-                let side = Math.floor(Math.random() * 4); // 0: atas, 1: kanan, 2: bawah, 3: kiri
-                let x, y;
+/* Cashier Section */
+.cashier-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+}
 
-                if (side === 0) { // Atas
-                    x = Math.random() * canvas.width;
-                    y = -20;
-                } else if (side === 1) { // Kanan
-                    x = canvas.width + 20;
-                    y = Math.random() * canvas.height;
-                } else if (side === 2) { // Bawah
-                    x = Math.random() * canvas.width;
-                    y = canvas.height + 20;
-                } else { // Kiri
-                    x = -20;
-                    y = Math.random() * canvas.height;
-                }
+.door {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    color: white;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
 
-                this.x = x;
-                this.y = y;
-                this.radius = 4 + Math.random() * 4; // Ukuran bervariasi
-                this.speed = 1 + Math.random() * 2;
-                
-                // Bergerak menuju pusat
-                const angleToCenter = Math.atan2(center.y - this.y, center.x - this.x);
-                this.dx = Math.cos(angleToCenter) * this.speed;
-                this.dy = Math.sin(angleToCenter) * this.speed;
-            }
+.door-bell {
+    font-size: 4em;
+    margin-bottom: 10px;
+    animation: ring 0.5s infinite;
+}
 
-            update() {
-                this.x += this.dx;
-                this.y += this.dy;
-            }
+@keyframes ring {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+}
 
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = colors.particle;
-                ctx.fill();
-            }
-        }
+.waiting-area,
+.counter {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #ddd;
+}
 
-        // --- Jejak Pemain ---
-        let playerTrail = [];
-        const maxTrailLength = 30;
+.waiting-area h3,
+.counter h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+}
 
-        // --- Fungsi Gambar ---
-        
-        function drawCenter() {
-            // Pusat (titik gravitasi)
-            ctx.beginPath();
-            ctx.arc(center.x, center.y, center.radius, 0, Math.PI * 2);
-            ctx.fillStyle = colors.center;
-            ctx.shadowColor = colors.center;
-            ctx.shadowBlur = 15;
-            ctx.fill();
-            ctx.shadowBlur = 0; // Reset shadow
-        }
+.customer-queue {
+    min-height: 80px;
+    margin-bottom: 15px;
+    border: 1px dashed #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    background: white;
+}
 
-        function drawPlayer() {
-            // Hitung posisi pemain
-            const x = center.x + player.distance * Math.cos(player.angle);
-            const y = center.y + player.distance * Math.sin(player.angle);
+.customer-item {
+    background: #e8f4f8;
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    border-left: 4px solid #667eea;
+    font-weight: bold;
+}
 
-            // Simpan posisi untuk jejak
-            playerTrail.push({ x, y });
-            if (playerTrail.length > maxTrailLength) {
-                playerTrail.shift();
-            }
+.counter-area {
+    min-height: 80px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
-            // Gambar jejak
-            ctx.strokeStyle = colors.trail;
-            ctx.lineWidth = player.radius / 2;
-            ctx.beginPath();
-            if (playerTrail.length > 1) {
-                ctx.moveTo(playerTrail[0].x, playerTrail[0].y);
-                for (let i = 1; i < playerTrail.length; i++) {
-                    // Gradasi transparansi pada jejak
-                    const alpha = i / maxTrailLength;
-                    ctx.strokeStyle = `rgba(52, 152, 219, ${alpha * 0.2})`; 
-                    ctx.lineTo(playerTrail[i].x, playerTrail[i].y);
-                }
-                ctx.stroke();
-            }
+/* Basket Section */
+.baskets-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+    min-height: 100px;
+}
 
-            // Gambar pemain
-            ctx.beginPath();
-            ctx.arc(x, y, player.radius, 0, Math.PI * 2);
-            ctx.fillStyle = colors.player;
-            ctx.shadowColor = colors.player;
-            ctx.shadowBlur = 10;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            
-            // Perbarui posisi pemain
-            player.x = x;
-            player.y = y;
-        }
+.basket {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 5px 15px rgba(245, 87, 108, 0.3);
+}
 
-        function drawParticles() {
-            particles.forEach(p => p.draw());
-        }
+.basket:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(245, 87, 108, 0.5);
+}
 
-        // --- Fungsi Logika/Update ---
+.basket-number {
+    font-size: 2em;
+    margin-bottom: 10px;
+}
 
-        function updatePlayer() {
-            let targetSpeed = player.orbitSpeed; // Kecepatan default
-            
-            // Perbarui kecepatan orbit berdasarkan tombol yang ditekan
-            if (player.keys.left) {
-                targetSpeed = player.maxSpeed; // Percepat jika bergerak berlawanan jarum jam
-            } else if (player.keys.right) {
-                targetSpeed = -player.maxSpeed; // Percepat jika bergerak searah jarum jam
-            } else {
-                targetSpeed = 0; // Berhenti jika tidak ada tombol yang ditekan
-            }
+.basket-clothes {
+    font-size: 0.9em;
+    margin: 5px 0;
+}
 
-            // Interpolasi kecepatan (membuat gerakan lebih halus/smooth)
-            if (targetSpeed > 0) {
-                 player.currentOrbitSpeed = Math.min(player.currentOrbitSpeed + player.acceleration, targetSpeed);
-            } else if (targetSpeed < 0) {
-                 player.currentOrbitSpeed = Math.max(player.currentOrbitSpeed - player.acceleration, targetSpeed);
-            } else {
-                 // Perlambatan otomatis saat tombol dilepas
-                 if (player.currentOrbitSpeed > 0) {
-                    player.currentOrbitSpeed = Math.max(0, player.currentOrbitSpeed - player.acceleration * 2);
-                 } else if (player.currentOrbitSpeed < 0) {
-                    player.currentOrbitSpeed = Math.min(0, player.currentOrbitSpeed + player.acceleration * 2);
-                 }
-            }
+.basket-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+}
 
+/* Washing Section */
+.washing-machines {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
 
-            // Terapkan kecepatan ke sudut
-            player.angle += player.currentOrbitSpeed;
-        }
+.washing-machine {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #ddd;
+    text-align: center;
+}
 
-        function updateParticles() {
-            // Hapus partikel yang sudah keluar dari layar
-            particles = particles.filter(p => 
-                p.x > -50 && p.x < canvas.width + 50 &&
-                p.y > -50 && p.y < canvas.height + 50
-            );
+.machine-status {
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
 
-            // Perbarui posisi partikel
-            particles.forEach(p => p.update());
+.machine-progress {
+    width: 100%;
+    height: 30px;
+    background: #ddd;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
 
-            // Spawn partikel baru (frekuensi spawn meningkat seiring skor)
-            frameCount++;
-            const adjustedSpawnRate = Math.max(30, particleSpawnRate - Math.floor(score / 50) * 5); // Semakin tinggi skor, semakin cepat spawn
+.machine-progress::after {
+    content: '';
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    width: 0%;
+    animation: progress 3s ease-in-out infinite;
+}
 
-            if (frameCount % adjustedSpawnRate === 0) {
-                particles.push(new Particle());
-            }
-        }
+@keyframes progress {
+    0% { width: 0%; }
+    50% { width: 100%; }
+    100% { width: 100%; }
+}
 
-        function checkCollision() {
-            const px = player.x;
-            const py = player.y;
+/* Drying Section */
+.drying-area {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+}
 
-            for (let i = 0; i < particles.length; i++) {
-                const p = particles[i];
-                const distance = Math.sqrt((px - p.x) ** 2 + (py - p.y) ** 2);
-                
-                // Tabrakan jika jarak lebih kecil dari jumlah radius
-                if (distance < player.radius + p.radius) {
-                    endGame("Tabrakan!");
-                    return true;
-                }
-            }
-            return false;
-        }
+.drying-lines {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    min-height: 80px;
+    margin-bottom: 20px;
+}
 
-        function updateScore() {
-            // Skor bertambah setiap frame saat game berjalan
-            score++;
-            scoreDisplay.textContent = `Skor: ${Math.floor(score / 10)}`;
-        }
-        
-        // --- Loop Utama Game ---
+.drying-line {
+    background: linear-gradient(90deg, #ffecd2 0%, #fcb69f 100%);
+    padding: 15px;
+    border-radius: 8px;
+    flex: 1;
+    min-width: 150px;
+    text-align: center;
+    border: 2px dashed #e0b89f;
+}
 
-        function gameLoop() {
-            if (!isGameRunning) return;
+.clothes-item {
+    display: inline-block;
+    padding: 5px 10px;
+    background: #fff;
+    border-radius: 4px;
+    margin: 3px;
+    font-size: 0.9em;
+}
 
-            // Bersihkan canvas dengan warna gelap
-            ctx.fillStyle = '#2c3e50';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+/* Ironing Section */
+.ironing-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
 
-            // 1. Update Logika
-            updatePlayer();
-            updateParticles();
-            
-            if (frameCount % 10 === 0) { // Update skor setiap 10 frame
-                updateScore();
-            }
+.ironing-station {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+}
 
-            // 2. Cek Tabrakan
-            if (checkCollision()) {
-                return;
-            }
+.ironing-queue {
+    min-height: 100px;
+    margin-bottom: 15px;
+    border: 1px dashed #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    background: white;
+}
 
-            // 3. Gambar
-            drawCenter();
-            drawPlayer();
-            drawParticles();
+.ironing-item {
+    background: #fff3cd;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 5px;
+    border-left: 4px solid #ffc107;
+}
 
-            animationFrameId = requestAnimationFrame(gameLoop);
-        }
+.ironing-progress {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
 
-        // --- Fungsi Kontrol Game ---
-        
-        function startGame() {
-            if (isGameRunning) return;
-            
-            // Reset status
-            isGameOver = false;
-            isGameRunning = true;
-            score = 0;
-            frameCount = 0;
-            particles = [];
-            playerTrail = [];
-            scoreDisplay.textContent = 'Skor: 0';
-            player.currentOrbitSpeed = 0;
-            player.angle = Math.PI / 2; // Atur ulang posisi awal
-            
-            // Sembunyikan pesan
-            messageBox.style.opacity = '0';
-            setTimeout(() => { messageBox.style.display = 'none'; }, 500); // Tunggu transisi selesai
+.progress-bar {
+    width: 100%;
+    height: 40px;
+    background: #ddd;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 10px;
+}
 
-            // Mulai loop
-            gameLoop();
-        }
+.progress-bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50, #45a049);
+    width: 0%;
+}
 
-        function endGame(reason) {
-            isGameOver = true;
-            isGameRunning = false;
-            
-            cancelAnimationFrame(animationFrameId);
+.progress-bar.active::after {
+    animation: fill 2s ease-in-out forwards;
+}
 
-            // Tampilkan pesan game over
-            messageBox.style.display = 'flex';
-            messageBox.style.opacity = '1';
-            messageBox.innerHTML = `
-                <h1 class="text-4xl font-bold mb-4">Game Over!</h1>
-                <p class="text-xl mb-2">${reason}</p>
-                <p class="text-2xl font-bold mb-6">Skor Akhir: ${Math.floor(score / 10)}</p>
-                <button id="restartButton" class="game-button">Main Lagi</button>
-            `;
-            document.getElementById('restartButton').addEventListener('click', startGame);
-        }
+@keyframes fill {
+    0% { width: 0%; }
+    100% { width: 100%; }
+}
 
-        // --- Event Listener ---
+/* Buttons */
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s;
+    text-transform: uppercase;
+}
 
-        // Fungsi penyesuaian ukuran canvas agar responsif
-        function resizeCanvas() {
-            const container = document.querySelector('.game-container');
-            const size = Math.min(container.clientWidth, 500);
-            canvas.width = size;
-            canvas.height = size;
-            center.x = canvas.width / 2;
-            center.y = canvas.height / 2;
-            
-            // Jika game sedang tidak berjalan, atur ulang posisi pesan
-            if (!isGameRunning) {
-                 messageBox.style.width = `${size}px`;
-                 messageBox.style.height = `${size}px`;
-            }
-        }
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
 
-        window.addEventListener('resize', resizeCanvas);
-        window.addEventListener('load', () => {
-             resizeCanvas();
-             // Menambahkan event listener ke tombol start
-             startButton.addEventListener('click', startGame);
-        });
+.btn-primary:hover:not(:disabled) {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
 
+.btn-success {
+    background: #4caf50;
+    color: white;
+}
 
-        // Keyboard controls
-        document.addEventListener('keydown', (e) => {
-            if (isGameRunning) {
-                if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') {
-                    player.keys.left = true;
-                } else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
-                    player.keys.right = true;
-                }
-            }
-        });
+.btn-success:hover:not(:disabled) {
+    background: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+}
 
-        document.addEventListener('keyup', (e) => {
-            if (isGameRunning) {
-                if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') {
-                    player.keys.left = false;
-                } else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
-                    player.keys.right = false;
-                }
-            }
-        });
+.btn-danger {
+    background: #f44336;
+    color: white;
+}
 
-        // Touch controls (untuk perangkat mobile)
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (isGameRunning) {
-                const touchX = e.touches[0].clientX;
-                const canvasRect = canvas.getBoundingClientRect();
-                
-                // Menentukan sentuhan di kiri atau kanan canvas
-                if (touchX < canvasRect.left + canvasRect.width / 2) {
-                    player.keys.left = true;
-                    player.keys.right = false;
-                } else {
-                    player.keys.right = true;
-                    player.keys.left = false;
-                }
-            }
-        });
+.btn-danger:hover:not(:disabled) {
+    background: #da190b;
+    transform: translateY(-2px);
+}
 
-        canvas.addEventListener('touchend', (e) => {
-             e.preventDefault();
-             if (isGameRunning) {
-                player.keys.left = false;
-                player.keys.right = false;
-             }
-        });
+.btn-warning {
+    background: #ff9800;
+    color: white;
+}
 
-    </script>
+.btn-warning:hover:not(:disabled) {
+    background: #e68900;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4);
+}
 
-</body>
-</html>
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Notification */
+.notification-area {
+    padding: 20px;
+    min-height: 30px;
+}
+
+.notification {
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: all 0.3s;
+    display: inline-block;
+    min-width: 300px;
+}
+
+.notification.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.notification.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.notification.warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.notification.hidden {
+    display: none;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    max-width: 500px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-content h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.customer-details {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #667eea;
+}
+
+.game-stats {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.game-stats p {
+    padding: 10px 0;
+    font-size: 1.1em;
+    border-bottom: 1px solid #ddd;
+}
+
+.game-stats p:last-child {
+    border-bottom: none;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.modal-buttons .btn {
+    flex: 1;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .cashier-area {
+        grid-template-columns: 1fr;
+    }
+
+    .ironing-area {
+        grid-template-columns: 1fr;
+    }
+
+    .header-stats {
+        gap: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .header h1 {
+        font-size: 1.8em;
+    }
+
+    .section {
+        padding: 20px;
+    }
+
+    .washing-machines {
+        grid-template-columns: 1fr;
+    }
+
+    .baskets-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Animations */
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.basket {
+    animation: bounce 2s infinite;
+}
+
+.customer-item {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
